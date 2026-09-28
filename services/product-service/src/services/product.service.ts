@@ -4,6 +4,8 @@ import type { IProduct } from "../types/product.type.js";
 import type { FilterQuery } from "mongoose";
 import { AppError } from "../utils/app-error.js";
 import type { ProductCursorQuery } from "../types/product-cursor-query.types.js";
+import { getCache, setCache } from "../utils/cache.js";
+import { invalidateProductCache } from "../utils/product-cache.js";
 export const createProduct = async (
   data: IProduct
 ) => {
@@ -18,13 +20,19 @@ export const createProduct = async (
 };
 
 export const getProducts = async (
-  query: ProductQuery
+  query: ProductQuery,
+  cacheKey: string
 ) => {
   const filter: FilterQuery<IProduct> = {
     isActive: true,
   };
+  const cachedProducts =
+    await getCache(cacheKey);
+  if (cachedProducts) {
+    console.log("Redis CACHE HIT");
 
-
+    return cachedProducts;
+  }
   if (query.search) {
     filter.name = {
       $regex: query.search,
@@ -111,7 +119,14 @@ export const getProducts = async (
     result.total / limit
   );
 
-  return {
+
+  console.log("CACHE DEBUG:", {
+  cacheKey,
+  products: result.products,
+  productsType: typeof result.products,
+  productsLength: result.products?.length,
+});
+  const response= {
     products: result.products,
 
     pagination: {
@@ -127,6 +142,12 @@ export const getProducts = async (
       hasPreviousPage: page > 1,
     },
   };
+    await setCache(
+    cacheKey,
+    response,
+    60
+  );
+  return response
 };
 
 export const getProductById = async (
@@ -147,12 +168,12 @@ export const updateProduct = async (
   data: Partial<IProduct>
 ) => {
   const product =
-    await productRepository.updateProduct(id, data);
+    await productRepository.updateProduct(id,data);
 
   if (!product) {
     throw new AppError("Product not found",400);
   }
-
+ await invalidateProductCache();
   return product;
 };
 
@@ -165,7 +186,7 @@ export const deleteProduct = async (
   if (!product) {
     throw new AppError("Product not found",400);
   }
-
+  await invalidateProductCache();
   return product;
 };
 

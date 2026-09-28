@@ -10,6 +10,7 @@ import {
   getPriceDistribution,
   getTopRatedProducts,
   getProductsByCursor,
+  getProductsController,
 } from "../controllers/product.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { createProductSchema, updateProductSchema } from "../validators/product.validator.js";
@@ -18,7 +19,7 @@ const router = Router();
 
 router.post("/", validate(createProductSchema),createProduct);
 
-router.get("/", getProducts);
+router.get("/", getProductsController);
 router.get(
   "/cursor",
   getProductsByCursor

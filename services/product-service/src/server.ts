@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import { connectDatabase } from "./config/database.js";
 import productRoutes from "./routes/product.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
+import redisClient from "./config/redis.js";
 
 dotenv.config();
 
@@ -31,13 +32,20 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 4001;
 
 const startServer = async () => {
+  try{
   await connectDatabase();
+  await redisClient.connect();
+  
 
   app.listen(PORT, () => {
     console.log(
       `Product service running on port ${PORT}`
     );
   });
+}catch(error){
+   console.error(error);
+    process.exit(1);
+}
 };
 
 startServer();
