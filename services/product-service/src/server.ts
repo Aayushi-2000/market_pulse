@@ -5,6 +5,8 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 
 import { connectDatabase } from "./config/database.js";
+import { connectRabbitMQ } from "./config/rabbitmq.js";
+import { startProductWorker } from "./messaging/consumer.js";
 import productRoutes from "./routes/product.routes.js";
 import { errorHandler } from "./middleware/error.middleware.js";
 import redisClient from "./config/redis.js";
@@ -32,20 +34,19 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 4001;
 
 const startServer = async () => {
-  try{
-  await connectDatabase();
-  await redisClient.connect();
-  
+  try {
+    await connectDatabase();
+    await redisClient.connect();
+    await connectRabbitMQ();
+    await startProductWorker();
 
-  app.listen(PORT, () => {
-    console.log(
-      `Product service running on port ${PORT}`
-    );
-  });
-}catch(error){
-   console.error(error);
+    app.listen(PORT, () => {
+      console.log(`🚀 Product service running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Fatal error during Product Service startup:", error);
     process.exit(1);
-}
+  }
 };
 
 startServer();

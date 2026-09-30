@@ -1,4 +1,4 @@
-import amqp, { Connection, Channel } from 'amqplib';
+import amqp from 'amqplib';
 
 let connection: any = null;
 let channel: any = null;
@@ -9,14 +9,21 @@ export const connectRabbitMQ = async () => {
         connection = await amqp.connect(amqpUrl);
         channel = await connection.createChannel();
 
-        console.log('🐰 RabbitMQ Connected Successfully');
+        console.log('🐰 Order Service Connected to RabbitMQ');
 
-        // Define the exchange, queue, and binding
+        // Assert exchanges
         await channel.assertExchange('order.events', 'topic', { durable: true });
+        await channel.assertExchange('product.events', 'topic', { durable: true });
+        await channel.assertExchange('payment.events', 'topic', { durable: true });
+
+        // Assert queues for notifications & saga responses
         await channel.assertQueue('notification.queue', { durable: true });
-        
-        // Bind the queue with a routing key pattern
         await channel.bindQueue('notification.queue', 'order.events', 'order.*');
+
+        await channel.assertQueue('order.saga.queue', { durable: true });
+        await channel.bindQueue('order.saga.queue', 'product.events', 'inventory.*');
+        await channel.bindQueue('order.saga.queue', 'payment.events', 'payment.*');
+
         connection.on('error', (err: any) => {
             console.error('RabbitMQ connection error', err);
         });

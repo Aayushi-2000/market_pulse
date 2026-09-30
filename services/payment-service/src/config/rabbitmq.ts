@@ -1,24 +1,23 @@
 import amqp from 'amqplib';
-import { env } from './env.js';
 
 let connection: any = null;
 let channel: any = null;
 
-export const connectRabbitMQ = async (): Promise<void> => {
+export const connectRabbitMQ = async () => {
     try {
-        connection = await amqp.connect(env.RABBITMQ_URL);
+        const amqpUrl = process.env.RABBITMQ_URL || 'amqp://localhost';
+        connection = await amqp.connect(amqpUrl);
         channel = await connection.createChannel();
 
         console.log('🐰 Payment Service Connected to RabbitMQ');
 
-        // Explicitly assert the payment queue
+        // Assert exchanges
+        await channel.assertExchange('payment.events', 'topic', { durable: true });
+        await channel.assertExchange('product.events', 'topic', { durable: true });
+
+        // Assert payment queue & bind to product.events (inventory.reserved)
         await channel.assertQueue('payment.queue', { durable: true });
-        // The original exchange was asserted by order-service as topic
-        // Wait, to avoid race conditions, it's safer to assert it here as well
-        await channel.assertExchange('order.events', 'topic', { durable: true });
-        
-        // Bind the payment queue to the order.events exchange
-        await channel.bindQueue('payment.queue', 'order.events', 'order.*');
+        await channel.bindQueue('payment.queue', 'product.events', 'inventory.*');
 
         connection.on('error', (err: any) => {
             console.error('RabbitMQ connection error', err);
